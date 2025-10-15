@@ -3,7 +3,6 @@ from tkinter import filedialog, messagebox, ttk
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.widgets import Cursor
 import pywt
 import os
 import scipy.io
@@ -24,23 +23,10 @@ class WaveletZVPAnalyzer:
         self.wavelet_coefficients = None
         self.wavelet_frequencies = None
 
-        # Переменные для управления просмотром
-        self.spectrogram_start_time = 0
-        self.spectrogram_duration = 5  # секунд по умолчанию
-
         # Фиксированные параметры анализа
         self.wavelet = 'cmor'  # Фиксированный вейвлет
         self.min_freq = 1  # Минимальная частота
         self.max_freq = 30  # Максимальная частота
-
-        # Диапазоны частот для анализа
-        self.freq_bands = {
-            'delta': (0.5, 3.0),
-            'theta': (4.0, 7.0),
-            'alpha': (8.0, 13.0),
-            'beta': (15.0, 30.0),
-            'gamma': (30.0, 45.0)
-        }
 
         self.create_widgets()
 
@@ -62,7 +48,7 @@ class WaveletZVPAnalyzer:
                                font=("Arial", 16, "bold"))
         title_label.pack(pady=15)
 
-        # Фрейм для кнопок в две строки
+        # Фрейм для кнопок
         button_frame = tk.Frame(left_frame)
         button_frame.pack(pady=10)
 
@@ -109,18 +95,6 @@ class WaveletZVPAnalyzer:
         button_row2 = tk.Frame(button_frame)
         button_row2.pack(pady=5)
 
-        # Кнопка спектрального анализа
-        self.analyze_spectral_btn = tk.Button(button_row2, text="СПЕКТРАЛЬНЫЙ АНАЛИЗ",
-                                              command=self.analyze_spectral,
-                                              font=("Arial", 11, "bold"),
-                                              width=22,
-                                              height=2,
-                                              bg="#9C27B0",
-                                              fg="white",
-                                              activebackground="#7B1FA2",
-                                              state="disabled")
-        self.analyze_spectral_btn.pack(side=tk.LEFT, padx=5)
-
         # Кнопка сохранения результатов
         self.save_btn = tk.Button(button_row2, text="СОХРАНИТЬ РЕЗУЛЬТАТЫ",
                                   command=self.save_results,
@@ -159,73 +133,6 @@ class WaveletZVPAnalyzer:
         self.analysis_channel_combo = ttk.Combobox(channel_analysis_frame, state="readonly", width=15)
         self.analysis_channel_combo.pack(side=tk.LEFT, padx=5)
 
-        # Фрейм управления просмотром спектрограммы
-        self.spectrogram_control_frame = tk.Frame(button_frame)
-
-        # Кнопки управления спектрограммой
-        spectrogram_controls = tk.Frame(self.spectrogram_control_frame)
-        spectrogram_controls.pack(pady=5)
-
-        tk.Label(spectrogram_controls, text="Управление спектрограммой:", font=("Arial", 10, "bold")).pack(side=tk.LEFT,
-                                                                                                           padx=5)
-
-        self.zoom_in_btn = tk.Button(spectrogram_controls, text="+ Приблизить",
-                                     command=self.zoom_in_spectrogram,
-                                     font=("Arial", 9),
-                                     width=12,
-                                     height=1,
-                                     bg="#C8E6C9",
-                                     fg="black",
-                                     state="disabled")
-        self.zoom_in_btn.pack(side=tk.LEFT, padx=2)
-
-        self.zoom_out_btn = tk.Button(spectrogram_controls, text="- Отдалить",
-                                      command=self.zoom_out_spectrogram,
-                                      font=("Arial", 9),
-                                      width=12,
-                                      height=1,
-                                      bg="#FFCDD2",
-                                      fg="black",
-                                      state="disabled")
-        self.zoom_out_btn.pack(side=tk.LEFT, padx=2)
-
-        self.scroll_left_btn = tk.Button(spectrogram_controls, text="◀ Назад",
-                                         command=self.scroll_left_spectrogram,
-                                         font=("Arial", 9),
-                                         width=10,
-                                         height=1,
-                                         bg="#BBDEFB",
-                                         fg="black",
-                                         state="disabled")
-        self.scroll_left_btn.pack(side=tk.LEFT, padx=2)
-
-        self.scroll_right_btn = tk.Button(spectrogram_controls, text="Вперед ▶",
-                                          command=self.scroll_right_spectrogram,
-                                          font=("Arial", 9),
-                                          width=10,
-                                          height=1,
-                                          bg="#BBDEFB",
-                                          fg="black",
-                                          state="disabled")
-        self.scroll_right_btn.pack(side=tk.LEFT, padx=2)
-
-        self.reset_view_btn = tk.Button(spectrogram_controls, text="Сброс",
-                                        command=self.reset_spectrogram_view,
-                                        font=("Arial", 9),
-                                        width=8,
-                                        height=1,
-                                        bg="#E0E0E0",
-                                        fg="black",
-                                        state="disabled")
-        self.reset_view_btn.pack(side=tk.LEFT, padx=2)
-
-        # Информация о текущем окне просмотра
-        self.view_info_label = tk.Label(self.spectrogram_control_frame,
-                                        text="Окно просмотра: 0.0 - 5.0 сек",
-                                        font=("Arial", 9),
-                                        fg="blue")
-        self.view_info_label.pack(pady=2)
-
         # Информация о параметрах анализа
         params_frame = tk.Frame(self.analysis_control_frame)
         params_frame.pack(pady=5)
@@ -257,12 +164,6 @@ class WaveletZVPAnalyzer:
         self.canvas = FigureCanvasTkAgg(self.fig, master=plot_frame)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(fill='both', expand=True)
-
-        # Включаем навигацию для zoom и pan
-        self.canvas.mpl_connect('scroll_event', self.on_scroll)
-        self.canvas.mpl_connect('button_press_event', self.on_click)
-        self.canvas.mpl_connect('motion_notify_event', self.on_motion)
-        self.canvas.mpl_connect('button_release_event', self.on_release)
 
     def setup_analysis_grid(self):
         self.fig.clear()
@@ -351,75 +252,6 @@ class WaveletZVPAnalyzer:
             messagebox.showinfo("Успех", "Результаты скопированы в буфер обмена!")
         else:
             messagebox.showwarning("Внимание", "Нет данных для копирования")
-
-    # Методы для управления спектрограммой
-    def zoom_in_spectrogram(self):
-        if self.spectrogram_duration > 0.5:  # Минимальное окно 0.5 секунды
-            self.spectrogram_duration /= 2
-            self.update_spectrogram_display()
-
-    def zoom_out_spectrogram(self):
-        if self.spectrogram_duration < self.total_duration:
-            self.spectrogram_duration = min(self.total_duration, self.spectrogram_duration * 2)
-            self.update_spectrogram_display()
-
-    def scroll_left_spectrogram(self):
-        new_start = max(0, self.spectrogram_start_time - self.spectrogram_duration * 0.5)
-        if new_start != self.spectrogram_start_time:
-            self.spectrogram_start_time = new_start
-            self.update_spectrogram_display()
-
-    def scroll_right_spectrogram(self):
-        max_start = self.total_duration - self.spectrogram_duration
-        new_start = min(max_start, self.spectrogram_start_time + self.spectrogram_duration * 0.5)
-        if new_start != self.spectrogram_start_time:
-            self.spectrogram_start_time = new_start
-            self.update_spectrogram_display()
-
-    def reset_spectrogram_view(self):
-        self.spectrogram_start_time = 0
-        self.spectrogram_duration = min(5, self.total_duration)
-        self.update_spectrogram_display()
-
-    def update_spectrogram_display(self):
-        if self.data is None or self.current_view != 'analysis' or self.wavelet_coefficients is None:
-            return
-
-        # Обновляем информацию о текущем окне просмотра
-        end_time = self.spectrogram_start_time + self.spectrogram_duration
-        self.view_info_label.config(text=f"Окно просмотра: {self.spectrogram_start_time:.1f} - {end_time:.1f} сек")
-
-        # Перерисовываем спектрограмму с новыми пределами
-        self.plot_wavelet_results(self.wavelet_coefficients, self.wavelet_frequencies,
-                                  self.get_current_analysis_channel())
-
-    # Обработчики событий мыши для интерактивного управления
-    def on_scroll(self, event):
-        if event.inaxes == self.ax_spectrogram:
-            if event.button == 'up':
-                self.zoom_in_spectrogram()
-            elif event.button == 'down':
-                self.zoom_out_spectrogram()
-
-    def on_click(self, event):
-        if event.inaxes == self.ax_spectrogram:
-            self.drag_start_x = event.xdata
-
-    def on_motion(self, event):
-        if event.inaxes == self.ax_spectrogram and hasattr(self, 'drag_start_x'):
-            if event.xdata is not None:
-                dx = event.xdata - self.drag_start_x
-                # Прокрутка при перетаскивании
-                scroll_speed = 0.1
-                new_start = self.spectrogram_start_time - dx * scroll_speed
-                new_start = max(0, min(new_start, self.total_duration - self.spectrogram_duration))
-                if new_start != self.spectrogram_start_time:
-                    self.spectrogram_start_time = new_start
-                    self.update_spectrogram_display()
-
-    def on_release(self, event):
-        if hasattr(self, 'drag_start_x'):
-            del self.drag_start_x
 
     def load_asc_file(self, file_path):
         """Загрузка ASC файла NeuroSoft"""
@@ -516,7 +348,6 @@ class WaveletZVPAnalyzer:
 
                 self.file_label.config(text=f"Загружен: {os.path.basename(file_path)}")
                 self.analyze_wavelet_btn.config(state="normal")
-                self.analyze_spectral_btn.config(state="normal")
                 self.save_btn.config(state="normal")
                 self.view_signal_btn.config(state="normal")
                 self.back_btn.config(state="normal")
@@ -668,9 +499,8 @@ class WaveletZVPAnalyzer:
         self.setup_analysis_grid()
         self.results_label.config(text="РЕЗУЛЬТАТЫ АНАЛИЗА:")
         self.results_text.delete(1.0, tk.END)
-        self.results_text.insert(1.0, "Готов к анализу. Выберите тип анализа выше.")
+        self.results_text.insert(1.0, "Готов к анализу. Нажмите 'ВЕЙВЛЕТ-АНАЛИЗ'.")
         self.channel_control_frame.pack_forget()
-        self.spectrogram_control_frame.pack_forget()
         self.canvas.draw()
 
     def get_current_analysis_channel(self):
@@ -714,20 +544,6 @@ class WaveletZVPAnalyzer:
             self.wavelet_coefficients = coefficients
             self.wavelet_frequencies = frequencies
 
-            # Сбрасываем настройки просмотра
-            self.spectrogram_start_time = 0
-            self.spectrogram_duration = min(5, self.total_duration)
-
-            # Активируем кнопки управления спектрограммой
-            self.zoom_in_btn.config(state="normal")
-            self.zoom_out_btn.config(state="normal")
-            self.scroll_left_btn.config(state="normal")
-            self.scroll_right_btn.config(state="normal")
-            self.reset_view_btn.config(state="normal")
-
-            # Показываем панель управления спектрограммой
-            self.spectrogram_control_frame.pack(pady=10)
-
             # Строим графики
             self.plot_wavelet_results(coefficients, frequencies, channel_data)
 
@@ -754,19 +570,10 @@ class WaveletZVPAnalyzer:
         self.ax_signal.grid(True, alpha=0.3)
         self.ax_signal.set_xlim(0, self.total_duration)
 
-        # 2. Вейвлет-спектрограмма (с возможностью zoom и scroll)
+        # 2. Вейвлет-спектрограмма (полная)
         if len(coefficients) > 0 and len(frequencies) > 0:
-            # Вычисляем границы отображаемого участка
-            start_idx = int(self.spectrogram_start_time * self.sampling_rate)
-            end_idx = int((self.spectrogram_start_time + self.spectrogram_duration) * self.sampling_rate)
-            end_idx = min(end_idx, len(channel_data))
-
-            # Обрезаем данные для отображения
-            display_time = time[start_idx:end_idx]
-            display_coefficients = coefficients[:, start_idx:end_idx]
-
-            im = self.ax_spectrogram.imshow(np.abs(display_coefficients),
-                                            extent=[display_time[0], display_time[-1],
+            im = self.ax_spectrogram.imshow(np.abs(coefficients),
+                                            extent=[time[0], time[-1],
                                                     frequencies[-1], frequencies[0]],
                                             aspect='auto', cmap='jet',
                                             interpolation='bilinear')
@@ -812,7 +619,7 @@ class WaveletZVPAnalyzer:
             info_text += f"• Максимальная амплитуда коэффициентов: {max_coeff:.4f}\n"
             info_text += f"• Средняя амплитуда коэффициентов: {mean_coeff:.4f}\n"
             info_text += f"• Доминирующая частота: {dominant_freq:.2f} Гц\n"
-            info_text += f"• Размерность матрицы коэффициентов: {coefficients.shape}\n\n"
+            # info_text += f"• Размерность матрицы коэффициентов: {coefficients.shape}\n\n"
 
         info_text += f"ДОСТУПНЫЕ КАНАЛЫ:\n"
         info_text += "-" * 25 + "\n"
@@ -821,149 +628,6 @@ class WaveletZVPAnalyzer:
 
         self.results_text.insert(1.0, info_text)
         self.results_label.config(text="РЕЗУЛЬТАТЫ ВЕЙВЛЕТ-АНАЛИЗА:")
-
-    def analyze_spectral(self):
-        """Спектральный анализ традиционным методом"""
-        if self.data is None:
-            return
-
-        self.show_analysis_view()
-        self.results_text.delete(1.0, tk.END)
-
-        try:
-            # Получаем данные выбранного канала
-            channel_data = self.get_current_analysis_channel()
-
-            # Вычисляем спектральную плотность мощности
-            freqs, psd = self.compute_psd(channel_data, self.sampling_rate)
-
-            if freqs is None:
-                messagebox.showerror("Ошибка", "Не удалось вычислить спектр!")
-                return
-
-            # Строим графики спектрального анализа
-            self.plot_spectral_results(freqs, psd, channel_data)
-
-            # Обновляем информацию
-            self.update_spectral_results_info(freqs, psd)
-
-        except Exception as e:
-            messagebox.showerror("Ошибка анализа", f"Ошибка спектрального анализа:\n{str(e)}")
-
-    def compute_psd(self, signal, fs):
-        """Вычисление СПМ методом периодограммы с окном Ханна"""
-        N = len(signal)
-
-        if N < 1000:
-            return None, None
-
-        if np.std(signal) < 1e-10:
-            return None, None
-
-        # Убираем постоянную составляющую
-        signal = signal - np.mean(signal)
-
-        # Применяем окно Ханна
-        window = np.hanning(N)
-        signal_windowed = signal * window
-
-        # Вычисление БПФ
-        fft_result = np.fft.fft(signal_windowed, n=N)
-
-        # Расчет СПМ с правильной нормализацией
-        window_power = np.sum(window ** 2)
-        psd = (np.abs(fft_result) ** 2) / (fs * window_power)
-
-        # Частоты
-        frequencies = np.fft.fftfreq(N, 1 / fs)
-
-        # Положительные частоты
-        positive_idx = (frequencies >= 0) & (frequencies <= fs / 2)
-        freqs_positive = frequencies[positive_idx]
-        psd_positive = psd[positive_idx]
-
-        return freqs_positive, psd_positive
-
-    def compute_band_power(self, psd, freqs, f_low, f_high):
-        """Вычисление мощности в заданном частотном диапазоне"""
-        freq_mask = (freqs >= f_low) & (frequencies <= f_high)
-        if np.any(freq_mask):
-            power = np.trapz(psd[freq_mask], freqs[freq_mask])
-            return power
-        return 0.0
-
-    def plot_spectral_results(self, freqs, psd, channel_data):
-        """Построение графиков спектрального анализа"""
-        self.setup_analysis_grid()
-
-        time = np.arange(len(channel_data)) / self.sampling_rate
-
-        # 1. Исходный сигнал
-        self.ax_signal.plot(time, channel_data, 'b-', linewidth=1)
-        self.ax_signal.set_ylabel('Амплитуда (мкВ)')
-        self.ax_signal.set_title(f'Исходный сигнал ЗВП - {self.analysis_channel_combo.get()}')
-        self.ax_signal.grid(True, alpha=0.3)
-
-        # 2. Спектральная плотность мощности
-        self.ax_spectrogram.plot(freqs, psd, 'r-', linewidth=1)
-        self.ax_spectrogram.set_ylabel('СПМ (мкВ²/Гц)')
-        self.ax_spectrogram.set_title('Спектральная плотность мощности')
-        self.ax_spectrogram.set_xlabel('Частота (Гц)')
-        self.ax_spectrogram.grid(True, alpha=0.3)
-        self.ax_spectrogram.set_xlim(0, 45)
-
-        # Закрашиваем частотные диапазоны
-        colors = ['lightblue', 'lightgreen', 'yellow', 'orange', 'pink']
-        for i, (band_name, (f_low, f_high)) in enumerate(self.freq_bands.items()):
-            band_mask = (freqs >= f_low) & (freqs <= f_high)
-            self.ax_spectrogram.fill_between(freqs[band_mask], psd[band_mask],
-                                             alpha=0.3, color=colors[i], label=band_name)
-
-        self.ax_spectrogram.legend()
-
-        self.fig.tight_layout()
-        self.canvas.draw()
-
-    def update_spectral_results_info(self, freqs, psd):
-        """Обновление информации о результатах спектрального анализа"""
-        info_text = f"РЕЗУЛЬТАТЫ СПЕКТРАЛЬНОГО АНАЛИЗА ЗВП\n"
-        info_text += "=" * 80 + "\n\n"
-        info_text += f"Канал: {self.analysis_channel_combo.get()}\n\n"
-
-        info_text += f"МОЩНОСТЬ ЧАСТОТНЫХ ДИАПАЗОНОВ:\n"
-        info_text += "-" * 50 + "\n"
-
-        total_power = 0
-        band_powers = {}
-
-        for band_name, (f_low, f_high) in self.freq_bands.items():
-            power = self.compute_band_power(psd, freqs, f_low, f_high)
-            band_powers[band_name] = power
-            total_power += power
-
-            info_text += f"• {band_name:6} ({f_low:2.1f}-{f_high:2.1f} Гц): {power:.6f} мкВ²/Гц\n"
-
-        info_text += f"\nОТНОСИТЕЛЬНАЯ МОЩНОСТЬ (%):\n"
-        info_text += "-" * 40 + "\n"
-
-        for band_name, power in band_powers.items():
-            if total_power > 0:
-                percentage = (power / total_power) * 100
-                info_text += f"• {band_name:6}: {percentage:6.2f}%\n"
-
-        # Находим пиковые частоты
-        peak_freq_idx = np.argmax(psd)
-        peak_freq = freqs[peak_freq_idx]
-        peak_power = psd[peak_freq_idx]
-
-        info_text += f"\nОСНОВНЫЕ ХАРАКТЕРИСТИКИ:\n"
-        info_text += "-" * 35 + "\n"
-        info_text += f"• Пиковая частота: {peak_freq:.2f} Гц\n"
-        info_text += f"• Пиковая мощность: {peak_power:.6f} мкВ²/Гц\n"
-        info_text += f"• Общая мощность (0.5-45 Гц): {total_power:.6f} мкВ²/Гц\n"
-
-        self.results_text.insert(1.0, info_text)
-        self.results_label.config(text="РЕЗУЛЬТАТЫ СПЕКТРАЛЬНОГО АНАЛИЗА:")
 
     def save_results(self):
         file_path = filedialog.asksaveasfilename(
